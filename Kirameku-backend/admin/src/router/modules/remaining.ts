@@ -11,6 +11,16 @@ export default [
       showLink: false
     }
   },
+  // 系统初始化安装页（仅在未初始化时可访问）
+  {
+    path: "/install",
+    name: "Install",
+    component: () => import("@/views/install/index.vue"),
+    meta: {
+      title: "系统安装",
+      showLink: false
+    }
+  },
   // 全屏403（无权访问）页面
   {
     path: "/access-denied",

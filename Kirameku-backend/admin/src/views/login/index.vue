@@ -18,9 +18,10 @@ import LoginUpdate from "./components/LoginUpdate.vue";
 import LoginQrCode from "./components/LoginQrCode.vue";
 import { useUserStoreHook } from "@/store/modules/user";
 import { initRouter, getTopMenu } from "@/router/utils";
+import { getInstallStatus } from "@/api/install";
 import { bg, avatar, illustration } from "./utils/static";
 import { ReImageVerify } from "@/components/ReImageVerify";
-import { ref, toRaw, reactive, watch, computed } from "vue";
+import { ref, toRaw, reactive, watch, computed, onMounted } from "vue";
 import { useRenderIcon } from "@/components/ReIcon/src/hooks";
 import { useTranslationLang } from "@/layout/hooks/useTranslationLang";
 import { useDataThemeChange } from "@/layout/hooks/useDataThemeChange";
@@ -115,6 +116,22 @@ watch(checked, bool => {
 });
 watch(loginDay, value => {
   useUserStoreHook().SET_LOGINDAY(value);
+});
+
+/** 系统未初始化时跳转安装页；安装完成带回的用户名自动预填登录框 */
+onMounted(() => {
+  getInstallStatus()
+    .then(res => {
+      if (res?.data?.installed === false) {
+        router.replace("/install");
+      }
+    })
+    .catch(() => {});
+  const qUsername = router.currentRoute.value.query?.username;
+  if (typeof qUsername === "string" && qUsername) {
+    ruleForm.username = qUsername;
+    ruleForm.password = "";
+  }
 });
 </script>
 

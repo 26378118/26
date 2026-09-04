@@ -4,6 +4,7 @@ from fastapi import APIRouter
 
 from app.api.auth import router as auth_router
 from app.api.github_auth import router as github_auth_router
+from app.api.install import router as install_router
 from app.api.posts import router as posts_router
 from app.api.categories import router as categories_router
 from app.api.tags import router as tags_router
@@ -23,6 +24,7 @@ api_router = APIRouter()
 
 api_router.include_router(auth_router)
 api_router.include_router(github_auth_router)
+api_router.include_router(install_router)
 api_router.include_router(posts_router)
 api_router.include_router(categories_router)
 api_router.include_router(tags_router)
