@@ -1,0 +1,58 @@
+# Kirameku Docker 编排（直接用镜像部署）
+#
+# 拓扑：
+#   - 数据库：阿里云 RDS / 远程 PostgreSQL（容器不跑数据库，镜像内也不含密钥）
+#   - 后端 backend：8000，内置管理后台 /admin（走 /api/install 引导首次初始化管理员）
+#   - 主站 next：3000，容器内 SSR 访问后端走镜像内烘焙的 http://backend:8000（构建期固化）
+#   - 端口：两个容器直接发布到宿主机（0.0.0.0）——
+#       主站   http://<服务器IP>:3000
+#       后台   http://<服务器IP>:8000/admin（/admin 已内置在 backend 镜像）
+#     请用云安全组/宝塔防火墙只放行需开放的端口。若按域名+HTTPS 对外，
+#     建议再在前面加宿主机 Nginx/云负载均衡做 TLS（届时可把端口改回 127.0.0.1）。
+#
+# 首次使用（服务器无需任何构建，只拉镜像）：
+#   1. 复制环境变量： cp Kirameku-backend/.env.example .env 并填入真实值
+#      （至少 DATABASE_URL、SECRET_KEY；OSS_* 若用 OSS 上传必填；CORS_ORIGINS 加正式域名）
+#      .env 已被根 .gitignore 忽略，切勿提交。
+#   2. docker compose pull
+#   3. docker compose up -d
+#   4. 浏览器访问 http://<服务器IP>:3000，管理后台 http://<服务器IP>:8000/admin ——
+#      若系统未初始化会出现"系统安装"向导。
+#
+# 升级： git pull && docker compose pull && docker compose up -d
+#   （详见 docs/docker-deploy.md）
+
+services:
+  backend:
+    image: ghcr.io/frigidom1024/kirameku-backend:latest
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      # 直接对外发布（0.0.0.0）；注意云安全组/防火墙
+      - "8000:8000"
+    volumes:
+      # 本地上传目录持久化（OSS 正常启用时基本不增长）
+      - uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys;sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/api/health',timeout=3).status==200 else 1)"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  next:
+    image: ghcr.io/frigidom1024/kirameku-next:latest
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "3000:3000"
+    environment:
+      # 注意：BACKEND_URL 是【构建期】参数，已在镜像里烘焙为 http://backend:8000，
+      # 这里不需要、也不会在运行期生效（详见 Kirameku/Dockerfile）。
+      # 1.8GB 内存服务器：限制 Next 堆内存（与 DEPLOY_NOTES.md 现状一致）
+      NODE_OPTIONS: --max-old-space-size=512
+
+volumes:
+  uploads:

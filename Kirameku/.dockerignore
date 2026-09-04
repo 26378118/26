@@ -1,0 +1,20 @@
+# VCS / IDE
+.git
+.gitignore
+.idea
+.vscode
+
+# 依赖与构建产物
+node_modules
+.next
+out
+
+# 日志与临时文件
+*.log
+.DS_Store
+Thumbs.db
+
+# 本地环境变量（如后续新增 .env* 用于构建，请按需放开）
+.env
+.env.*
+!.env.example

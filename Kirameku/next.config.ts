@@ -4,14 +4,19 @@ const nextConfig: NextConfig = {
   compress: true,
 
   async rewrites() {
+    // 后端地址（供服务端渲染内部请求）。注意：Next 会在 `next build` 时把该值
+    // 固化进 routes-manifest，运行期修改不生效——
+    //   · 裸机/宝塔：默认 http://127.0.0.1:8000（与源码运行一致）
+    //   · Docker 镜像：Dockerfile 以 ARG BACKEND_URL=http://backend:8000 在构建期注入
+    const backendUrl = process.env.BACKEND_URL || "http://127.0.0.1:8000";
     return [
       {
         source: "/api/:path*",
-        destination: "http://127.0.0.1:8000/api/:path*",
+        destination: `${backendUrl}/api/:path*`,
       },
       {
         source: "/uploads/:path*",
-        destination: "http://127.0.0.1:8000/uploads/:path*",
+        destination: `${backendUrl}/uploads/:path*`,
       },
       {
         source: "/reader3/:path*",

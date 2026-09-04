@@ -1,0 +1,28 @@
+# VCS / IDE
+.git
+.gitignore
+.idea
+.vscode
+
+# Python 依赖与缓存
+venv
+.venv
+__pycache__
+**/__pycache__
+*.pyc
+
+# 密钥：只忽略后端根目录的 .env（admin/.env.production 等【构建配置】必须保留）
+/.env
+
+# admin 依赖与构建产物（dist 在镜像内重建，不随上下文带入）
+admin/node_modules
+admin/dist
+admin/package-lock.json
+
+# 本地数据与临时文件
+uploads/*
+!uploads/.gitkeep
+fancy-meandering-rain.md
+DATABASE.md
+*.sql
+*.log

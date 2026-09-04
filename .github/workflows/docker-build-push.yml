@@ -1,0 +1,95 @@
+# 构建并发布 Kirameku Docker 镜像到 GitHub Container Registry (ghcr.io)
+#
+# 触发时机：
+#   - push 到 main           → 镜像标签 latest + sha-<短哈希>
+#   - push 任意 v* 标签      → 镜像标签 vX.Y.Z / X.Y.Z / latest
+#   - 手动 workflow_dispatch → 手动构建当前分支
+#
+# 产物：
+#   ghcr.io/<owner>/kirameku-backend   FastAPI + 内置管理后台(admin/dist，挂载于 /admin)
+#   ghcr.io/<owner>/kirameku-next      主站 Next.js
+#
+# 说明：本工作流只负责"构建 + 推送"，不做自动部署（无服务器 SSH 密钥）。
+#       服务器拉取与启动步骤见 docs/docker-deploy.md。
+
+name: Build & Push Docker Images
+
+on:
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+  workflow_dispatch:
+
+concurrency:
+  group: docker-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_BACKEND: ${{ github.repository_owner }}/kirameku-backend
+  IMAGE_NEXT: ${{ github.repository_owner }}/kirameku-next
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker metadata (backend)
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_BACKEND }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Docker metadata (next)
+        id: meta-next
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NEXT }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=tag
+            type=sha,prefix=sha-,format=short
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build & push backend image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Kirameku-backend
+          file: ./Kirameku-backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build & push next image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./Kirameku
+          file: ./Kirameku/Dockerfile
+          push: true
+          tags: ${{ steps.meta-next.outputs.tags }}
+          labels: ${{ steps.meta-next.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
