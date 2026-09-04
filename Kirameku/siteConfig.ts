@@ -53,12 +53,15 @@ export const siteConfig = {
     { name: "React 19", color: "text-cyan-400" },
     { name: "Tailwind 4", color: "text-teal-400" },
   ],
+  // 备案信息（选填）：name 填了才在页面上显示，留空则不显示。
+  // 网站如已备案，把自己的工信部备案号填进来：
   icpConfig: {
-    name: "赣ICP备2025078417号",
+    name: "",
     link: "https://beian.miit.gov.cn/",
   },
+  // 萌ICP 备案（https://icp.gov.moe），同样选填，留空则不显示
   moeIcpConfig: {
-    name: "萌ICP备20260527号",
+    name: "", 
     link: "https://icp.gov.moe/?keyword=20260527",
   },
 
