@@ -7,12 +7,13 @@
 #
 # 多阶段：
 #   1. deps   —— node:22-alpine 按锁文件装依赖（含 devDependencies，供 next build 使用）
-#   2. builder—— pnpm build 产出 .next
-#   3. runner —— 精简运行镜像：.next + node_modules + public + next.config.ts
+#   2. builder—— pnpm build（output: 'standalone'）产出 .next/standalone 等
+#   3. runner —— 精简运行镜像：仅 standalone 产物 + .next/static + public
 #
-# 运行方式与现状一致：next start（未启用 output: 'standalone'）。
-# 容器内 SSR 访问后端依赖 BACKEND_URL 环境变量（默认 http://127.0.0.1:8000），
-# 见仓库根 docker-compose.yml。
+# standalone 模式让 next build 做依赖追踪，运行镜像只带 SSR 真正用到的 node_modules
+# （约几十 MB，替代过去全量拷贝 ~700MB + chown 整层复制造成的镜像虚高）。
+# 容器内 SSR 访问后端仍走构建期烘焙的 BACKEND_URL（next.config.ts rewrites 在
+# next build 时固化），默认 http://backend:8000，见仓库根 docker-compose.yml。
 
 ########################## 1. 依赖安装 ##########################
 FROM node:22-alpine AS base
@@ -44,23 +45,24 @@ FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     PORT=3000 \
+    HOSTNAME=0.0.0.0 \
     NEXT_TELEMETRY_DISABLED=1
 
 RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+    && adduser --system --uid 1001 nextjs \
+    && mkdir -p /app/.next \
+    && chown nextjs:nodejs /app/.next
 
-COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/next.config.ts ./
-COPY --from=builder /app/tsconfig.json ./tsconfig.json
-
-# 所有产物均归 nextjs 所有（next start 需写 .next/cache 图片优化缓存）
-RUN chown -R nextjs:nodejs /app
+# standalone 产物不含 public/ 与 .next/static，需手动拷入；
+# 全程用 COPY --chown 直接定属主，避免过去 RUN chown -R 把整个 /app
+# 复制进新层造成的镜像虚高（内容 ×2）。
+# .next 目录先建好并归 nextjs：图片优化缓存 .next/cache 需要运行时写入。
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 
 EXPOSE 3000
 
-CMD ["node", "node_modules/next/dist/bin/next", "start"]
+CMD ["node", "server.js"]

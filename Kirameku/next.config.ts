@@ -1,6 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // standalone 输出：build 时做依赖追踪，生成 .next/standalone，供 Docker 精简运行镜像
+  // （Dockerfile runner 阶段只拷该产物，详见 Kirameku/Dockerfile）
+  output: "standalone",
+
   compress: true,
 
   async rewrites() {
